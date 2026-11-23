@@ -1,0 +1,49 @@
+name: Astronomer CI - Deploy to Astro (main bundle)
+
+# Deploys this Astro project (image + the implicit `main` DAG bundle) to
+# the shared Astro Deployment whenever changes land on `main`.
+#
+# deploy-type defaults to "infer": deploy-action inspects the diff and runs
+# a DAG-only deploy if only dags/ changed, or a full image+dags deploy
+# otherwise (Dockerfile, requirements.txt, etc.). A manual run
+# (workflow_dispatch) has no diff to compare, so it does a full image+dags
+# deploy. Markdown-only pushes are ignored so README edits don't rebuild
+# the image.
+#
+# The named bundles (mdb-python-ops, mdb-bash-ops) are deployed from their
+# own repos and are not touched by this workflow's deploys.
+#
+# Requires an ASTRO_API_TOKEN secret (Workspace or Deployment-scoped) and an
+# ASTRO_DEPLOYMENT_ID variable, both configured in this repo's
+# Settings > Secrets and variables > Actions.
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-mdb-main
+  cancel-in-progress: false
+
+env:
+  ASTRO_API_TOKEN: ${{ secrets.ASTRO_API_TOKEN }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Astro CLI
+        uses: astronomer/setup-astro-cli@v0.0.1
+        with:
+          version: "1.47.0"
+
+      - name: Deploy to Astro
+        uses: astronomer/deploy-action@v0.17.0
+        with:
+          deployment-id: ${{ vars.ASTRO_DEPLOYMENT_ID }}
+          parse: true
+          description: "main bundle - ${{ github.event_name }} @ ${{ github.sha }}"
